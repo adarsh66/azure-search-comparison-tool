@@ -10,6 +10,7 @@ import uuid
 import wget
 import pandas as pd
 import zipfile
+import dotenv
 
 import openai
 from tenacity import retry, wait_random_exponential, stop_after_attempt
@@ -31,6 +32,8 @@ from azure.search.documents.indexes.models import (
     VectorSearch,
     VectorSearchAlgorithmConfiguration,
 )
+
+dotenv.load_dotenv()
 
 AZURE_OPENAI_SERVICE = os.environ.get("AZURE_OPENAI_SERVICE")
 AZURE_OPENAI_DEPLOYMENT_NAME = (
@@ -242,6 +245,7 @@ def populate_search_index_images():
             search_client.upload_documents(doc)
             print(f"{file}")
 
+
 def create_and_populate_search_index_wikipedia():
     created = create_search_index_wikipedia()
     if created:
@@ -328,26 +332,29 @@ def populate_search_index_wikipedia():
     zipFilename = "vector_database_wikipedia_articles_embedded.zip"
     csvFilename = "vector_database_wikipedia_articles_embedded.csv"
     folderPath = "data/wikipedia"
-    zipFilePath = os.path.join(folderPath,zipFilename)
-    cvsFilePath = os.path.join(folderPath,csvFilename)
+    zipFilePath = os.path.join(folderPath, zipFilename)
+    cvsFilePath = os.path.join(folderPath, csvFilename)
     if not os.path.exists(folderPath):
         os.makedirs(folderPath)
 
     if not os.path.exists(zipFilePath):
         wget.download(embeddings_url, out=folderPath)
-    
-    with zipfile.ZipFile(zipFilePath,"r") as zip_ref:
+
+    with zipfile.ZipFile(zipFilePath, "r") as zip_ref:
         zip_ref.extract(csvFilename, folderPath)
 
     article_df = pd.read_csv(cvsFilePath)
-    article_df.rename(columns = {'title_vector':'titleVector', 'content_vector': 'contentVector'}, inplace=True)
-  
-    # Read vectors from strings back into a list using json.loads  
-    article_df["titleVector"] = article_df.titleVector.apply(json.loads)  
-    article_df["contentVector"] = article_df.contentVector.apply(json.loads)  
-    article_df['id'] = article_df['id'].astype(str)  
-    article_df['vector_id'] = article_df['vector_id'].astype(str)
-    documents = article_df.to_dict(orient='records')
+    article_df.rename(
+        columns={"title_vector": "titleVector", "content_vector": "contentVector"},
+        inplace=True,
+    )
+
+    # Read vectors from strings back into a list using json.loads
+    article_df["titleVector"] = article_df.titleVector.apply(json.loads)
+    article_df["contentVector"] = article_df.contentVector.apply(json.loads)
+    article_df["id"] = article_df["id"].astype(str)
+    article_df["vector_id"] = article_df["vector_id"].astype(str)
+    documents = article_df.to_dict(orient="records")
 
     print(f"Uploading documents...")
     search_client = SearchClient(
@@ -356,15 +363,16 @@ def populate_search_index_wikipedia():
         index_name=AZURE_SEARCH_WIKIPEDIA_INDEX_NAME,
     )
 
-    batch_size = 250  
-    batches = [documents[i:i + batch_size] for i in range(0, len(documents), batch_size)]  
-  
-    for batch in batches:  
-        search_client.upload_documents(batch) 
+    batch_size = 250
+    batches = [
+        documents[i : i + batch_size] for i in range(0, len(documents), batch_size)
+    ]
+
+    for batch in batches:
+        search_client.upload_documents(batch)
     print(
         f"Uploaded {len(documents)} documents to index {AZURE_SEARCH_WIKIPEDIA_INDEX_NAME}"
     )
-
 
 
 def delete_search_index(name: str):
@@ -454,10 +462,10 @@ if __name__ == "__main__":
     open_ai_token_cache[CACHE_KEY_CREATED_TIME] = time.time()
     open_ai_token_cache[CACHE_KEY_TOKEN_CRED] = azure_credential
 
-    # Create text index
-    if args.recreate:
-        delete_search_index(AZURE_SEARCH_TEXT_INDEX_NAME)
-    create_and_populate_search_index_text()
+    # # Create text index
+    # if args.recreate:
+    #     delete_search_index(AZURE_SEARCH_TEXT_INDEX_NAME)
+    # create_and_populate_search_index_text()
 
     # Create image index
     if args.recreate:
@@ -468,5 +476,5 @@ if __name__ == "__main__":
     if args.recreate:
         delete_search_index(AZURE_SEARCH_WIKIPEDIA_INDEX_NAME)
     create_and_populate_search_index_wikipedia()
- 
+
     print("Completed successfully")

@@ -4,3 +4,4 @@ azure-storage-blob==12.17.0
 openai[datalib]==0.27.8
 tenacity==8.2.3
 wget==3.2
+python-dotenv

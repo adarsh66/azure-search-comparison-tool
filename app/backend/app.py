@@ -23,8 +23,8 @@ CONFIG_INDEX = "index"
 CONFIG_INDEX_WIKIPEDIA = "index_wikipedia"
 
 dataSetConfigDict = {
-     "sample": CONFIG_SEARCH_TEXT_INDEX,
-     "wikipedia": CONFIG_SEARCH_WIKIPEDIA_INDEX
+    "sample": CONFIG_SEARCH_TEXT_INDEX,
+    "wikipedia": CONFIG_SEARCH_WIKIPEDIA_INDEX,
 }
 
 bp = Blueprint("routes", __name__, static_folder="static")
@@ -108,14 +108,14 @@ async def search_images():
     try:
         request_json = await request.get_json()
         r = await current_app.config[CONFIG_SEARCH_IMAGES_INDEX].search(
-            request_json["query"],
-            request_json["dataType"]
+            request_json["query"], request_json["dataType"]
         )
 
         return jsonify(r), 200
     except Exception as e:
         logging.exception("Exception in /searchImages")
         return jsonify({"error": str(e)}), 500
+
 
 @bp.route("/getEfSearch", methods=["GET"])
 async def get_efsearch():
@@ -126,17 +126,21 @@ async def get_efsearch():
         logging.exception("Exception in /getEfSearch")
         return jsonify({"error": str(e)}), 500
 
+
 @bp.route("/updateEfSearch", methods=["POST"])
 async def update_efsearch():
     try:
         request_json = await request.get_json()
         newValue = request_json["efSearch"] if request_json.get("efSearch") else None
         await current_app.config[CONFIG_INDEX_WIKIPEDIA].update_efsearch(int(newValue))
-        ef_search = await current_app.config[CONFIG_INDEX].update_efsearch(int(newValue))
+        ef_search = await current_app.config[CONFIG_INDEX].update_efsearch(
+            int(newValue)
+        )
         return str(ef_search), 200
     except Exception as e:
         logging.exception("Exception in /updateEfSearch")
         return jsonify({"error": str(e)}), 500
+
 
 @bp.before_request
 async def ensure_openai_token():
@@ -169,6 +173,27 @@ async def gzip_response(response):
     response.headers["Content-Length"] = len(await response.get_data())
 
     return response
+
+
+@bp.route("/createNewIndex", methods=["POST"])
+async def create_new_index():
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 400
+    try:
+        request_json = await request.get_json()
+        local_file_path = request_json.get("localFilePath")
+        database_options_str = request_json.get("databaseOptions")
+
+        # Split the comma-separated string into a list
+        database_options = database_options_str.split(",")
+
+        # Here you would add the logic to handle the creation of the new index
+        # using the local_file_path and database_options
+
+        return jsonify({"message": "Index created successfully"}), 200
+    except Exception as e:
+        logging.exception("Exception in /createNewIndex")
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.before_app_serving
@@ -236,9 +261,16 @@ async def setup_clients():
         AZURE_VISIONAI_API_VERSION,
         AZURE_VISIONAI_KEY,
     )
-    current_app.config[CONFIG_SEARCH_WIKIPEDIA_INDEX] = SearchText(search_client_wikipedia)
-    current_app.config[CONFIG_INDEX] = IndexSchema(index_client, AZURE_SEARCH_TEXT_INDEX_NAME)
-    current_app.config[CONFIG_INDEX_WIKIPEDIA] = IndexSchema(index_client, AZURE_SEARCH_WIKIPEDIA_INDEX_NAME)
+    current_app.config[CONFIG_SEARCH_WIKIPEDIA_INDEX] = SearchText(
+        search_client_wikipedia
+    )
+    current_app.config[CONFIG_INDEX] = IndexSchema(
+        index_client, AZURE_SEARCH_TEXT_INDEX_NAME
+    )
+    current_app.config[CONFIG_INDEX_WIKIPEDIA] = IndexSchema(
+        index_client, AZURE_SEARCH_WIKIPEDIA_INDEX_NAME
+    )
+
 
 def create_app():
     app = Quart(__name__)
